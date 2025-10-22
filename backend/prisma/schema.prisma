@@ -1,0 +1,140 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Marketplace {
+  mercado_livre
+  magalu
+  shopee
+}
+
+enum ScrapeRunStatus {
+  queued
+  running
+  success
+  error
+}
+
+enum PostJobStatus {
+  queued
+  running
+  partial
+  success
+  error
+}
+
+// Produtos
+model Product {
+  id                  String   @id @default(uuid())
+  marketplace         Marketplace
+  canonicalProductId  String?  @map("canonical_product_id")
+  title               String
+  priceCents          BigInt   @map("price_cents")
+  currency            String   @default("BRL")
+  rating              Decimal? @db.Decimal(3, 2)
+  reviewCount         Int?     @map("review_count")
+  sellerName          String?  @map("seller_name")
+  category            String?
+  mainImageUrl        String?  @map("main_image_url")
+  images              Json     @default("[]")
+  urlAffiliate        String   @map("url_affiliate")
+  urlCanonical        String?  @map("url_canonical")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  versions      ProductVersion[]
+  affiliateLinks AffiliateLink[]
+  postJobs      PostJob[]
+
+  @@index([marketplace, canonicalProductId])
+  @@map("products")
+}
+
+// Histórico de versões
+model ProductVersion {
+  id         String   @id @default(uuid())
+  productId  String   @map("product_id")
+  snapshot   Json
+  scrapedAt  DateTime @default(now()) @map("scraped_at")
+
+  // Relations
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("product_versions")
+}
+
+// Links de afiliado
+model AffiliateLink {
+  id             String      @id @default(uuid())
+  productId      String?     @map("product_id")
+  rawUrl         String      @map("raw_url")
+  normalizedUrl  String?     @map("normalized_url")
+  marketplace    Marketplace
+  isActive       Boolean     @default(true) @map("is_active")
+  createdAt      DateTime    @default(now()) @map("created_at")
+
+  // Relations
+  product    Product?     @relation(fields: [productId], references: [id], onDelete: SetNull)
+  scrapeRuns ScrapeRun[]
+
+  @@index([marketplace, isActive])
+  @@map("affiliate_links")
+}
+
+// Execuções de scraping
+model ScrapeRun {
+  id              String           @id @default(uuid())
+  affiliateLinkId String?          @map("affiliate_link_id")
+  status          ScrapeRunStatus
+  error           String?
+  startedAt       DateTime?        @map("started_at")
+  finishedAt      DateTime?        @map("finished_at")
+
+  // Relations
+  affiliateLink AffiliateLink? @relation(fields: [affiliateLinkId], references: [id], onDelete: SetNull)
+
+  @@index([status, startedAt])
+  @@map("scrape_runs")
+}
+
+// Jobs de postagem
+model PostJob {
+  id        String        @id @default(uuid())
+  productId String        @map("product_id")
+  channels  Json
+  status    PostJobStatus
+  context   Json          @default("{}")
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  product Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
+  events  IntegrationEvent[]
+
+  @@map("post_jobs")
+}
+
+// Eventos de integração
+model IntegrationEvent {
+  id        String   @id @default(uuid())
+  postJobId String?  @map("post_job_id")
+  source    String
+  stage     String
+  payload   Json
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  postJob PostJob? @relation(fields: [postJobId], references: [id], onDelete: Cascade)
+
+  @@index([postJobId, createdAt])
+  @@map("integration_events")
+}

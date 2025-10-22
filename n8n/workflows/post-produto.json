@@ -1,0 +1,213 @@
+{
+  "name": "Auto-Post Produto",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "post-produto",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "post-produto"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": true, \"postJobId\": $json.body.postJobId } }}"
+      },
+      "id": "webhook-response",
+      "name": "Webhook Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "content": "🔥 {{ $json.product.title }}\n\n💰 Apenas R$ {{ ($json.product.priceCents / 100).toFixed(2) }}\n\n⭐ Avaliação: {{ $json.product.rating || 'N/A' }}\n\n🛒 Link na bio!\n\n{{ $json.context.hashtags?.join(' ') || '#oferta #promo' }}",
+        "additionalFields": {}
+      },
+      "id": "generate-caption",
+      "name": "Generate Caption",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.channels.instagram }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if-instagram",
+      "name": "If Instagram Enabled",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [850, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.backendBaseUrl }}/webhooks/n8n/status",
+        "options": {},
+        "bodyParametersJson": "={{ { \"postJobId\": $json.postJobId, \"channel\": \"instagram\", \"stage\": \"posted\", \"status\": \"success\", \"detail\": { \"message\": \"Posted to Instagram\" } } }}"
+      },
+      "id": "callback-instagram",
+      "name": "Callback Instagram",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1050, 100]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.channels.pinterest }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if-pinterest",
+      "name": "If Pinterest Enabled",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [850, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.backendBaseUrl }}/webhooks/n8n/status",
+        "options": {},
+        "bodyParametersJson": "={{ { \"postJobId\": $json.postJobId, \"channel\": \"pinterest\", \"stage\": \"posted\", \"status\": \"success\", \"detail\": { \"message\": \"Posted to Pinterest\" } } }}"
+      },
+      "id": "callback-pinterest",
+      "name": "Callback Pinterest",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.channels.whatsapp }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if-whatsapp",
+      "name": "If WhatsApp Enabled",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [850, 600]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.backendBaseUrl }}/webhooks/n8n/status",
+        "options": {},
+        "bodyParametersJson": "={{ { \"postJobId\": $json.postJobId, \"channel\": \"whatsapp\", \"stage\": \"posted\", \"status\": \"success\", \"detail\": { \"message\": \"Sent via WhatsApp\" } } }}"
+      },
+      "id": "callback-whatsapp",
+      "name": "Callback WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1050, 500]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Response": {
+      "main": [
+        [
+          {
+            "node": "Generate Caption",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Caption": {
+      "main": [
+        [
+          {
+            "node": "If Instagram Enabled",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If Pinterest Enabled",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If WhatsApp Enabled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Instagram Enabled": {
+      "main": [
+        [
+          {
+            "node": "Callback Instagram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Pinterest Enabled": {
+      "main": [
+        [
+          {
+            "node": "Callback Pinterest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If WhatsApp Enabled": {
+      "main": [
+        [
+          {
+            "node": "Callback WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "staticData": null,
+  "tags": [],
+  "pinData": {}
+}
