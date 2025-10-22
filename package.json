@@ -1,0 +1,11 @@
+{
+  "name": "auto-post",
+  "version": "1.0.0",
+  "description": "Sistema completo para coletar dados de produtos de links de afiliados (Mercado Livre, Magalu, Shopee) e publicar automaticamente no Instagram, Pinterest e WhatsApp via n8n.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC"
+}
