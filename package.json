@@ -1,11 +1,31 @@
 {
-  "name": "auto-post",
+  "name": "cadence-auto-post",
   "version": "1.0.0",
-  "description": "Sistema completo para coletar dados de produtos de links de afiliados (Mercado Livre, Magalu, Shopee) e publicar automaticamente no Instagram, Pinterest e WhatsApp via n8n.",
+  "description": "AI-Powered Social Media Auto-Poster for Affiliate Links (Mercado Livre, Magalu, Shopee) built with NestJS, Next.js, and Python Scraper.",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
-  "license": "ISC"
+  "keywords": [
+    "auto-post",
+    "social-media",
+    "scraper",
+    "n8n",
+    "automation",
+    "affiliate",
+    "cadence-code"
+  ],
+  "author": "Mauricio R. Filho <mauricio.srfh@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MauricioRFilho/auto-post.git"
+  },
+  "bugs": {
+    "url": "https://github.com/MauricioRFilho/auto-post/issues"
+  },
+  "homepage": "https://github.com/MauricioRFilho/auto-post#readme",
+  "engines": {
+    "node": ">=20.0.0"
+  }
 }

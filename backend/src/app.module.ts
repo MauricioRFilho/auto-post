@@ -1,3 +1,7 @@
+/**
+ * Main application module for the Cadence Auto-Post backend.
+ * Coordinates all sub-modules including Links, Products, Posts, and Webhooks.
+ */
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { BullModule } from '@nestjs/bullmq';

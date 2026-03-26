@@ -55,3 +55,5 @@ coverage/
 
 # n8n
 n8n-data/
+.agent/
+.agents/

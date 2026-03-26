@@ -1,242 +1,95 @@
-# Guia de Início Rápido - Auto-Post
+# 🏁 Quick Start Guide | Guia de Início Rápido
 
-Este guia ajudará você a ter o sistema funcionando em **15 minutos**.
+[**English**](#🇺🇸-english-guide) | [**Português**](#🇧🇷-guia-em-português)
 
-## Passo 1: Pré-requisitos (5 min)
+---
 
-Certifique-se de ter instalado:
+## 🇺🇸 English Guide
 
+This guide will help you get the system up and running in **15 minutes**.
+
+### Step 1: Prerequisites
+Ensure you have the following installed:
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/)
 - [Node.js 20+](https://nodejs.org/)
 
-Verifique as instalações:
-
+Verify installations:
 ```bash
 docker --version
 node --version
-npm --version
 ```
 
-## Passo 2: Configuração Inicial (3 min)
-
-Clone o repositório e configure:
-
+### Step 2: Initial Setup
+Clone the repository and configure:
 ```bash
-# Clone
-git clone <repo-url>
+git clone https://github.com/MauricioRFilho/auto-post.git
 cd auto-post
-
-# Copie as variáveis de ambiente
 cp .env.example .env
-
-# Inicie os serviços com Docker
 docker-compose up -d
 ```
+Verify services are "Up" with `docker-compose ps`.
 
-Aguarde os containers iniciarem. Verifique com:
-
+### Step 3: Backend Setup
 ```bash
-docker-compose ps
-```
-
-Todos os serviços devem estar "Up".
-
-## Passo 3: Backend Setup (3 min)
-
-```bash
-# Entre na pasta do backend
 cd backend
-
-# Instale dependências
 npm install
-
-# Execute migrations
 npx prisma migrate dev --name init
-
-# Volte para raiz
 cd ..
 ```
 
-## Passo 4: Dashboard Setup (2 min)
-
+### Step 4: Dashboard Setup
 ```bash
-# Entre na pasta do dashboard
 cd dashboard
-
-# Instale dependências
 npm install
-
-# Inicie o dashboard
 npm run dev
 ```
 
-## Passo 5: Teste o Sistema (2 min)
+### Step 5: Test the System
+1. **Access Dashboard**: Open http://localhost:3000
+2. **Add a Test Link**: Go to "Links" and paste a Mercado Livre product URL.
+3. **Check Scraping**: In a few seconds, the status should change to "success".
+4. **View Product**: Click "Products" to see the extracted data.
 
-### 5.1 Acesse o Dashboard
+---
 
-Abra seu navegador em: http://localhost:3000
+## 🇧🇷 Guia em Português
 
-Você deve ver a interface do Auto-Post.
+Este guia ajudará você a ter o sistema funcionando em **15 minutos**.
 
-### 5.2 Adicione um Link de Teste
+### Passo 1: Pré-requisitos
+Certifique-se de ter instalado:
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+- [Node.js 20+](https://nodejs.org/)
 
-1. Clique em "Links" no menu lateral
-2. Cole um link de produto do Mercado Livre (exemplo):
-   ```
-   https://www.mercadolivre.com.br/relogio-smartwatch-inteligente-cor-preto/p/MLB15898803
-   ```
-3. Clique em "Adicionar Link"
-
-### 5.3 Acompanhe o Scraping
-
-1. O sistema detectará automaticamente que é Mercado Livre
-2. Em alguns segundos, você verá o status mudar para "success"
-3. Clique em "Produtos" para ver o produto coletado
-
-### 5.4 Verifique o n8n (Opcional)
-
-1. Acesse http://localhost:5678
-2. Login: `admin` / `admin123`
-3. Importe o workflow de `n8n/workflows/post-produto.json`
-
-## Verificação Rápida
-
-Execute este checklist para garantir que tudo está funcionando:
-
-- [ ] Dashboard carregando em http://localhost:3000
-- [ ] Backend respondendo em http://localhost:8080
-- [ ] n8n acessível em http://localhost:5678
-- [ ] Conseguiu adicionar um link
-- [ ] Link foi processado com sucesso
-- [ ] Produto apareceu na listagem
-
-## Próximos Passos
-
-Agora que o sistema está funcionando:
-
-1. **Configure APIs Sociais**: Veja [n8n/README.md](n8n/README.md) para configurar Instagram, Pinterest e WhatsApp
-2. **Teste um Post**: Crie um post de teste em "Posts" > "Criar Post"
-3. **Personalize**: Edite templates de legenda no workflow do n8n
-
-## Problemas Comuns
-
-### "Cannot connect to Docker daemon"
-
-**Solução**: Inicie o Docker Desktop
-
-### "Port already in use"
-
-**Solução**: Algum serviço já está usando as portas. Pare-os ou mude as portas no `docker-compose.yml`:
-
-```yaml
-services:
-  backend:
-    ports:
-      - "8081:8080"  # Mudou de 8080 para 8081
-```
-
-### Dashboard mostra "API error"
-
-**Solução**: Verifique se o backend está rodando:
-
+### Passo 2: Configuração Inicial
 ```bash
-curl http://localhost:8080
+git clone https://github.com/MauricioRFilho/auto-post.git
+cd auto-post
+cp .env.example .env
+docker-compose up -d
 ```
 
-Se não responder, reinicie:
-
-```bash
-docker-compose restart backend
-```
-
-### Scraper não processa links
-
-**Solução**: Verifique logs do scraper:
-
-```bash
-docker-compose logs -f scraper
-```
-
-Se houver erros com Playwright, reconstrua a imagem:
-
-```bash
-docker-compose build --no-cache scraper
-docker-compose up -d scraper
-```
-
-## Comandos Úteis
-
-```bash
-# Ver logs de todos os serviços
-docker-compose logs -f
-
-# Ver logs de um serviço específico
-docker-compose logs -f backend
-
-# Reiniciar um serviço
-docker-compose restart backend
-
-# Parar tudo
-docker-compose down
-
-# Parar e remover volumes (limpa banco de dados)
-docker-compose down -v
-
-# Reconstruir imagens
-docker-compose build --no-cache
-
-# Ver status dos containers
-docker-compose ps
-```
-
-## Desenvolvimento
-
-Se você quer desenvolver localmente sem Docker:
-
-### Terminal 1 - PostgreSQL e Redis
-
-```bash
-docker-compose up -d postgres redis
-```
-
-### Terminal 2 - Backend
-
+### Passo 3: Setup do Backend
 ```bash
 cd backend
-npm run start:dev
+npm install
+npx prisma migrate dev --name init
+cd ..
 ```
 
-### Terminal 3 - Scraper
-
-```bash
-cd scraper
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-playwright install chromium
-python src/worker.py
-```
-
-### Terminal 4 - Dashboard
-
+### Passo 4: Setup do Dashboard
 ```bash
 cd dashboard
+npm install
 npm run dev
 ```
 
-### Terminal 5 - n8n (Opcional)
+### Passo 5: Teste o Sistema
+1. **Acesse o Dashboard**: http://localhost:3000
+2. **Adicione um Link**: Vá em "Links" e cole um link de produto do Mercado Livre.
+3. **Acompanhe**: O status mudará para "success" em alguns segundos.
+4. **Veja o Produto**: Verifique os dados em "Produtos".
 
-```bash
-docker-compose up -d n8n
-```
-
-## Suporte
-
-Problemas? Consulte:
-
-- [README.md](README.md) - Documentação completa
-- [SETUP.md](SETUP.md) - Setup detalhado
-- [n8n/README.md](n8n/README.md) - Configuração do n8n
-- Issues do GitHub
-
-Boa sorte! 🚀
+---
+Explore [**SETUP.md**](SETUP.md) for a detailed step-by-step setup guide.
+Veja o [**SETUP.md**](SETUP.md) para um guia de configuração detalhado.

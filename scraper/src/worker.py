@@ -1,3 +1,8 @@
+"""
+Scraper Worker module.
+Handles consumption of scrape jobs from BullMQ/Redis and coordinates
+the Playwright-based scraping process for different marketplaces.
+"""
 import asyncio
 import json
 from datetime import datetime

@@ -1,81 +1,48 @@
-# n8n Workflow
+# 🔀 n8n Automation Guide | Guia de Automação n8n
 
-Este diretório contém os workflows do n8n para o sistema de auto-post.
+[**English**](#🇺🇸-english-guide) | [**Português**](#🇧🇷-guia-em-português)
 
-## Importar Workflow
+---
 
-1. Acesse o n8n em `http://localhost:5678`
-2. Login: `admin` / `admin123`
-3. Clique em "Workflows" > "Add workflow"
-4. Clique no menu (⋮) > "Import from file"
-5. Selecione o arquivo `workflows/post-produto.json`
+## 🇺🇸 English Guide
 
-## Configurar Credenciais
+This directory contains n8n workflows for the Cadence Auto-Post system.
 
-### Instagram Graph API
-1. Vá em "Credentials" > "Add credential"
-2. Selecione "Instagram Graph API"
-3. Configure:
-   - Access Token: seu token do Instagram
-   - Page ID: ID da sua página
+### 1. Import Workflow
+1. Access n8n at `http://localhost:5678` (admin/admin123).
+2. "Workflows" > "Add workflow" > (⋮) > "Import from file".
+3. Select `workflows/post-produto.json`.
 
-### Pinterest API
-1. Vá em "Credentials" > "Add credential"
-2. Selecione "Pinterest API"
-3. Configure:
-   - Access Token: seu token do Pinterest
-   - Board ID: ID do board onde postar
+### 2. Configure Credentials
+- **Instagram Graph API**: Add Page ID and Access Token.
+- **Pinterest API**: Add Access Token and Board ID.
+- **WhatsApp Cloud API**: Add Phone Number ID and Access Token.
 
-### WhatsApp Cloud API
-1. Vá em "Credentials" > "Add credential"
-2. Selecione "WhatsApp Cloud API"
-3. Configure:
-   - Access Token: seu token do WhatsApp
-   - Phone Number ID: ID do seu número
+### 3. How it Works
+The workflow receives a webhook from the backend with product data and:
+1. **Generates Caption** using AI or templates.
+2. **Publishes to Channels** (Instagram, Pinterest, WhatsApp).
+3. **Sends Callbacks** back to the backend to update status.
 
-## Como Funciona
+---
 
+## 🇧🇷 Guia em Português
+
+Este diretório contém os workflows do n8n para o sistema Cadence Auto-Post.
+
+### 1. Importar Workflow
+1. Acesse o n8n em `http://localhost:5678` (admin/admin123).
+2. Clique em "Workflows" > "Add workflow" > (⋮) > "Import from file".
+3. Selecione o arquivo `workflows/post-produto.json`.
+
+### 2. Configurar Credenciais
+Adicione as credenciais para as APIs do Instagram, Pinterest e WhatsApp na seção "Credentials".
+
+### 3. Como Funciona
 O workflow recebe um webhook do backend com os dados do produto e:
+1. **Gera legenda** usando templates ou IA.
+2. **Publica nos canais** configurados.
+3. **Envia callbacks** ao backend para cada etapa do processo.
 
-1. **Recebe dados** via webhook POST
-2. **Gera legenda** usando template com dados do produto
-3. **Publica nos canais** (Instagram, Pinterest, WhatsApp) conforme configurado
-4. **Envia callbacks** ao backend para cada etapa
-
-## Estrutura do Payload
-
-```json
-{
-  "postJobId": "uuid",
-  "backendBaseUrl": "http://backend:8080",
-  "channels": {
-    "instagram": true,
-    "pinterest": true,
-    "whatsapp": true
-  },
-  "product": {
-    "id": "uuid",
-    "marketplace": "mercado_livre",
-    "title": "Produto Exemplo",
-    "priceCents": 9990,
-    "currency": "BRL",
-    "rating": "4.5",
-    "images": ["https://..."],
-    "urlAffiliate": "https://..."
-  },
-  "context": {
-    "hashtags": ["#oferta", "#promo"],
-    "pinterest_board": "ofertas"
-  }
-}
-```
-
-## Próximos Passos
-
-Para implementar a integração real com as APIs sociais, substitua os nós de callback por:
-
-- **Instagram**: Use o nó "Instagram" com a credencial configurada
-- **Pinterest**: Use o nó "Pinterest" com a credencial configurada
-- **WhatsApp**: Use o nó "WhatsApp Business" com a credencial configurada
-
-Este workflow atual é um esqueleto que envia callbacks de sucesso para testar a integração.
+---
+*© 2026 Cadence Code | Rhythmic Excellence.*
