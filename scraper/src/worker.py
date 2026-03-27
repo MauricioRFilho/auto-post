@@ -7,20 +7,22 @@ import asyncio
 import json
 from datetime import datetime
 from redis import Redis
-from playwright.async_api import async_playwright
+from playwright.async_api import async_playwright, Browser
 from sqlalchemy.orm import Session
 from src.config import settings
 from src.logger import logger
 from src.database import SessionLocal
 from src.detector import detect_marketplace, Marketplace
 from src.scrapers.mercado_livre import MercadoLivreScraper
+from src.scrapers.magalu import MagaluScraper
+from src.scrapers.shopee import ShopeeScraper
 
 
 class ScraperWorker:
     def __init__(self):
         self.redis = Redis.from_url(settings.redis_url, decode_responses=True)
         self.queue_key = "bull:scrape:"
-        self.browser = None
+        self.browser: Browser | None = None
 
     async def init_browser(self):
         """Initialize Playwright browser"""
@@ -37,8 +39,9 @@ class ScraperWorker:
 
     async def close_browser(self):
         """Close Playwright browser"""
-        if self.browser:
+        if self.browser is not None:
             await self.browser.close()
+            self.browser = None
             logger.info("Browser closed")
 
     def get_scraper(self, marketplace: Marketplace):
@@ -46,11 +49,9 @@ class ScraperWorker:
         if marketplace == Marketplace.MERCADO_LIVRE:
             return MercadoLivreScraper(self.browser)
         elif marketplace == Marketplace.MAGALU:
-            # TODO: Implement Magalu scraper
-            raise NotImplementedError("Magalu scraper not implemented yet")
+            return MagaluScraper(self.browser)
         elif marketplace == Marketplace.SHOPEE:
-            # TODO: Implement Shopee scraper
-            raise NotImplementedError("Shopee scraper not implemented yet")
+            return ShopeeScraper(self.browser)
         else:
             raise ValueError(f"Unknown marketplace: {marketplace}")
 

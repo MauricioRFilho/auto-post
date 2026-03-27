@@ -1,0 +1,17 @@
+{
+  "include": [
+    "scraper"
+  ],
+  "exclude": [
+    "**/node_modules",
+    "**/__pycache__",
+    "scraper/.venv"
+  ],
+  "venvPath": "scraper",
+  "venv": ".venv",
+  "extraPaths": [
+    "scraper"
+  ],
+  "reportMissingImports": true,
+  "typeCheckingMode": "basic"
+}
