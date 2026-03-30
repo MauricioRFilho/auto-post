@@ -1,0 +1,30 @@
+# Cadence Auto-Post | Simplified Social Engine
+
+## Overview
+Cadence Auto-Post is a trilingual (PT-BR, EN, ES) open-source tool for affiliates and creators to automate product postings from marketplaces (Mercado Livre, Magalu, Shopee) directly to Telegram channels. It is designed to be "zero-code" and "idiot-proof" using Docker.
+
+## Architecture
+- **Backend**: NestJS (v10), Prisma ORM, BullMQ (Queues)
+- **Frontend**: Next.js (v14), Tailwind CSS, Lucide-React
+- **Scraper**: Python (v3.11), Playwright, SQLAlchemy ORM
+- **Infra**: PostgreSQL, Redis, Docker Compose
+
+## Core Features
+1. **Interactive Setup**: `setup.sh` script for easy `.env` generation.
+2. **Visual Settings**: Change Telegram keys via Dashboard (/settings).
+3. **Internal Automation**: Removed n8n dependency; all logic is native in NestJS.
+4. **Scraper Workers**: Independent Python workers for data extraction.
+
+## Documentation Links
+- [README.md](README.md)
+- [Quick Start](docs/QUICKSTART.md)
+- [User Manual](docs/USER_MANUAL.md)
+- [Architecture Details](docs/ARCHITECTURE.md)
+- [Configuration Guide](docs/CONFIGURATION.md)
+
+## Security
+- No authentication for local-only use.
+- Secure fallback from Database to Environment variables.
+
+## Author
+@MauricioRFilho / MauricioRFilho/auto-post

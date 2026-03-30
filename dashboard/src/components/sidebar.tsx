@@ -2,13 +2,14 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Link2, Package, Send } from 'lucide-react'
+import { Link2, Package, Send, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const navigation = [
   { name: 'Links', href: '/links', icon: Link2 },
   { name: 'Produtos', href: '/products', icon: Package },
   { name: 'Posts', href: '/posts', icon: Send },
+  { name: 'Configurações', href: '/settings', icon: Settings },
 ]
 
 export function Sidebar() {

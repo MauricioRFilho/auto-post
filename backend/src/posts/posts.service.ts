@@ -1,15 +1,20 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProductsService } from '../products/products.service';
+import { TelegramService } from '../messaging/telegram.service';
+import { CaptionService } from '../messaging/caption.service';
 import { CreatePostDto } from './dto/create-post.dto';
+import { PostJobStatus } from '@prisma/client';
 
 @Injectable()
 export class PostsService {
+  private readonly logger = new Logger(PostsService.name);
+
   constructor(
     private prisma: PrismaService,
     private productsService: ProductsService,
-    private configService: ConfigService,
+    private telegramService: TelegramService,
+    private captionService: CaptionService,
   ) {}
 
   async create(dto: CreatePostDto) {
@@ -26,8 +31,13 @@ export class PostsService {
       },
     });
 
-    // Trigger n8n workflow
-    await this.triggerN8nWorkflow(postJob.id, product, dto.channels, dto.context);
+    // Process post locally (replaces triggerN8nWorkflow)
+    // We don't await this if we want it to be "async" like a queue, 
+    // but for simplicity and "idiot-proof" we can do it now or use a local event emitter.
+    // For now, let's run it and return the job.
+    this.processPostJob(postJob.id, product, dto.channels, dto.context).catch(err => {
+      this.logger.error(`Failed to process post job ${postJob.id}: ${err.message}`);
+    });
 
     return postJob;
   }
@@ -80,82 +90,66 @@ export class PostsService {
     return postJob.events;
   }
 
-  private async triggerN8nWorkflow(
+  private async processPostJob(
     postJobId: string,
     product: any,
     channels: any,
     context?: any,
   ) {
-    const n8nBaseUrl = this.configService.get('N8N_BASE_URL');
-    const n8nWebhookPath = this.configService.get('N8N_WEBHOOK_PATH');
-    const backendBaseUrl = this.configService.get('BACKEND_BASE_URL') || 'http://localhost:8080';
-
-    const payload = {
-      postJobId,
-      backendBaseUrl,
-      channels,
-      product: {
-        id: product.id,
-        marketplace: product.marketplace,
-        title: product.title,
-        priceCents: product.priceCents,
-        currency: product.currency,
-        rating: product.rating?.toString(),
-        reviewCount: product.reviewCount,
-        sellerName: product.sellerName,
-        category: product.category,
-        images: product.images,
-        urlAffiliate: product.urlAffiliate,
-      },
-      context: context || {},
-    };
+    // Update status to running
+    await this.updateJobStatus(postJobId, 'running', 'Geração de legenda iniciada');
 
     try {
-      const response = await fetch(`${n8nBaseUrl}${n8nWebhookPath}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
+      // 1. Generate Caption
+      const caption = this.captionService.formatProductCaption(product, context);
 
-      if (!response.ok) {
-        throw new Error(`n8n webhook failed: ${response.statusText}`);
+      // 2. Handle Channels
+      // Only Telegram is priority/free for now as requested
+      if (channels.telegram || channels.default) {
+        await this.updateJobStatus(postJobId, 'running', 'Enviando para Telegram', 'telegram');
+        
+        const result = await this.telegramService.sendMessage(caption);
+        
+        if (result.success) {
+          await this.updateJobStatus(postJobId, 'success', 'Postado com sucesso no Telegram', 'telegram', result.detail);
+        } else {
+          await this.updateJobStatus(postJobId, 'error', `Erro Telegram: ${result.detail}`, 'telegram');
+        }
       }
 
-      // Log success
-      await this.prisma.integrationEvent.create({
-        data: {
-          postJobId,
-          source: 'n8n',
-          stage: 'triggered',
-          payload: { status: 'success', timestamp: new Date().toISOString() },
-        },
-      });
-
-      // Update post job status
+      // 3. Mark overall success if at least one worked (simpler logic)
       await this.prisma.postJob.update({
         where: { id: postJobId },
-        data: { status: 'running' },
+        data: { status: 'success' },
       });
+
     } catch (error) {
-      // Log error
-      await this.prisma.integrationEvent.create({
-        data: {
-          postJobId,
-          source: 'n8n',
-          stage: 'error',
-          payload: { error: error.message, timestamp: new Date().toISOString() },
-        },
-      });
+      this.logger.error(`Error processing job ${postJobId}: ${error.message}`);
+      await this.updateJobStatus(postJobId, 'error', `Falha crítica: ${error.message}`);
+    }
+  }
 
-      // Update post job status
+  private async updateJobStatus(
+    postJobId: string, 
+    status: PostJobStatus, 
+    message: string, 
+    channel: string = 'system',
+    detail: any = {}
+  ) {
+    await this.prisma.integrationEvent.create({
+      data: {
+        postJobId,
+        source: channel,
+        stage: status,
+        payload: { message, detail, timestamp: new Date().toISOString() },
+      },
+    });
+
+    if (status === 'error' || status === 'success') {
       await this.prisma.postJob.update({
         where: { id: postJobId },
-        data: { status: 'error' },
+        data: { status },
       });
-
-      throw error;
     }
   }
 }

@@ -5,6 +5,7 @@ the Playwright-based scraping process for different marketplaces.
 """
 import asyncio
 import json
+import uuid
 from datetime import datetime
 from redis import Redis
 from playwright.async_api import async_playwright, Browser
@@ -12,10 +13,11 @@ from sqlalchemy.orm import Session
 from src.config import settings
 from src.logger import logger
 from src.database import SessionLocal
-from src.detector import detect_marketplace, Marketplace
-from src.scrapers.mercado_livre import MercadoLivreScraper
-from src.scrapers.magalu import MagaluScraper
-from src.scrapers.shopee import ShopeeScraper
+from src.detector import detect_marketplace
+from src.models import (
+    AffiliateLink, Product, ProductVersion, ScrapeRun, 
+    ScrapeRunStatus, MarketplaceEnum
+)
 
 
 class ScraperWorker:
@@ -44,16 +46,21 @@ class ScraperWorker:
             self.browser = None
             logger.info("Browser closed")
 
-    def get_scraper(self, marketplace: Marketplace):
+    async def get_scaler_scraper(self, marketplace_val: str):
         """Get appropriate scraper for marketplace"""
-        if marketplace == Marketplace.MERCADO_LIVRE:
+        # Dynamic import to avoid circular imports if any
+        from src.scrapers.mercado_livre import MercadoLivreScraper
+        from src.scrapers.magalu import MagaluScraper
+        from src.scrapers.shopee import ShopeeScraper
+
+        if marketplace_val == MarketplaceEnum.mercado_livre.value:
             return MercadoLivreScraper(self.browser)
-        elif marketplace == Marketplace.MAGALU:
+        elif marketplace_val == MarketplaceEnum.magalu.value:
             return MagaluScraper(self.browser)
-        elif marketplace == Marketplace.SHOPEE:
+        elif marketplace_val == MarketplaceEnum.shopee.value:
             return ShopeeScraper(self.browser)
         else:
-            raise ValueError(f"Unknown marketplace: {marketplace}")
+            raise ValueError(f"Unknown marketplace: {marketplace_val}")
 
     async def process_job(self, job_data: dict):
         """Process a scrape job"""
@@ -65,179 +72,106 @@ class ScraperWorker:
         db: Session = SessionLocal()
 
         try:
-            # Get affiliate link from database
-            result = db.execute(
-                "SELECT id, raw_url, marketplace FROM affiliate_links WHERE id = :id",
-                {"id": affiliate_link_id}
-            )
-            link = result.fetchone()
+            # 1. Get affiliate link using ORM
+            affiliate_link = db.query(AffiliateLink).filter(AffiliateLink.id == affiliate_link_id).first()
 
-            if not link:
-                logger.error("Affiliate link not found", affiliate_link_id=affiliate_link_id)
+            if not affiliate_link:
+                logger.error(f"Affiliate link not found: {affiliate_link_id}")
                 return
 
-            url = link[1]
-            marketplace_str = link[2]
+            logger.info(f"Processing scrape job: {affiliate_link.raw_url}")
 
-            logger.info("Processing scrape job", url=url, marketplace=marketplace_str)
-
-            # Create/Update scrape run
-            scrape_run_result = db.execute(
-                """
-                INSERT INTO scrape_runs (id, affiliate_link_id, status, started_at)
-                VALUES (gen_random_uuid(), :link_id, 'running', :started_at)
-                RETURNING id
-                """,
-                {"link_id": affiliate_link_id, "started_at": datetime.utcnow()}
+            # 2. Create Scrape Run
+            scrape_run = ScrapeRun(
+                id=str(uuid.uuid4()),
+                affiliate_link_id=affiliate_link_id,
+                status=ScrapeRunStatus.running,
+                started_at=datetime.utcnow()
             )
-            scrape_run_id = scrape_run_result.fetchone()[0]
+            db.add(scrape_run)
             db.commit()
 
             try:
-                # Detect marketplace and get scraper
-                marketplace = detect_marketplace(url)
-                scraper = self.get_scraper(marketplace)
+                # 3. Detect marketplace and get scraper
+                # detector handles normalization and marketplace identification
+                marketplace = detect_marketplace(affiliate_link.raw_url)
+                scraper = await self.get_scaler_scraper(marketplace.value)
 
-                # Scrape product
-                product_data = await scraper.scrape(url)
+                # 4. Scrape product data
+                product_data = await scraper.scrape(affiliate_link.raw_url)
 
-                # Save to database
-                await self.save_product(db, affiliate_link_id, product_data)
+                # 5. Save/Update product via ORM
+                await self.save_product(db, affiliate_link, product_data)
 
-                # Update scrape run as success
-                db.execute(
-                    """
-                    UPDATE scrape_runs
-                    SET status = 'success', finished_at = :finished_at
-                    WHERE id = :id
-                    """,
-                    {"id": scrape_run_id, "finished_at": datetime.utcnow()}
-                )
+                # 6. Mark Success
+                scrape_run.status = ScrapeRunStatus.success
+                scrape_run.finished_at = datetime.utcnow()
                 db.commit()
 
-                logger.info("Scrape job completed successfully", affiliate_link_id=affiliate_link_id)
+                logger.info(f"Scrape job completed successfully: {affiliate_link_id}")
 
             except Exception as e:
-                # Update scrape run as error
-                db.execute(
-                    """
-                    UPDATE scrape_runs
-                    SET status = 'error', error = :error, finished_at = :finished_at
-                    WHERE id = :id
-                    """,
-                    {"id": scrape_run_id, "error": str(e), "finished_at": datetime.utcnow()}
-                )
+                # Mark Error in ScrapeRun
+                scrape_run.status = ScrapeRunStatus.error
+                scrape_run.error = str(e)
+                scrape_run.finished_at = datetime.utcnow()
                 db.commit()
+                logger.error(f"Error scraping URL {affiliate_link.raw_url}: {str(e)}")
                 raise
 
         except Exception as e:
-            logger.error("Failed to process scrape job", error=str(e), affiliate_link_id=affiliate_link_id)
+            logger.error(f"Failed to process job: {str(e)}", extra={"affiliate_link_id": affiliate_link_id})
             db.rollback()
         finally:
             db.close()
 
-    async def save_product(self, db: Session, affiliate_link_id: str, product_data):
-        """Save or update product in database"""
-        # Check if product exists
-        result = db.execute(
-            """
-            SELECT id FROM products
-            WHERE marketplace = :marketplace
-            AND canonical_product_id = :canonical_id
-            """,
-            {
-                "marketplace": product_data.marketplace,
-                "canonical_id": product_data.canonical_product_id
-            }
-        )
-        existing = result.fetchone()
+    async def save_product(self, db: Session, affiliate_link: AffiliateLink, product_data):
+        """Save captured product data to DB via ORM and create version snapshot"""
+        
+        # Check if product already exists by Marketplace + Canonical ID
+        product = db.query(Product).filter(
+            Product.marketplace == MarketplaceEnum(product_data.marketplace),
+            Product.canonical_product_id == product_data.canonical_product_id
+        ).first()
 
         product_dict = product_data.model_dump()
 
-        if existing:
-            # Update existing product
-            product_id = existing[0]
-            db.execute(
-                """
-                UPDATE products
-                SET title = :title,
-                    price_cents = :price_cents,
-                    currency = :currency,
-                    rating = :rating,
-                    review_count = :review_count,
-                    seller_name = :seller_name,
-                    category = :category,
-                    main_image_url = :main_image_url,
-                    images = :images,
-                    url_affiliate = :url_affiliate,
-                    url_canonical = :url_canonical,
-                    updated_at = :updated_at
-                WHERE id = :id
-                """,
-                {
-                    **product_dict,
-                    "images": json.dumps(product_data.images),
-                    "id": product_id,
-                    "updated_at": datetime.utcnow()
-                }
-            )
+        if product:
+            # Update existing
+            for key, value in product_dict.items():
+                if hasattr(product, key):
+                    setattr(product, key, value)
+            product.updated_at = datetime.utcnow()
         else:
-            # Create new product
-            result = db.execute(
-                """
-                INSERT INTO products (
-                    id, marketplace, canonical_product_id, title, price_cents, currency,
-                    rating, review_count, seller_name, category, main_image_url, images,
-                    url_affiliate, url_canonical, created_at, updated_at
-                )
-                VALUES (
-                    gen_random_uuid(), :marketplace, :canonical_product_id, :title, :price_cents, :currency,
-                    :rating, :review_count, :seller_name, :category, :main_image_url, :images,
-                    :url_affiliate, :url_canonical, :created_at, :updated_at
-                )
-                RETURNING id
-                """,
-                {
-                    **product_dict,
-                    "images": json.dumps(product_data.images),
-                    "created_at": datetime.utcnow(),
-                    "updated_at": datetime.utcnow()
-                }
-            )
-            product_id = result.fetchone()[0]
+            # Create new
+            product = Product(**product_dict)
+            product.id = str(uuid.uuid4())
+            db.add(product)
+            db.flush() # Get product ID for relationship
 
-        # Update affiliate link with product_id
-        db.execute(
-            "UPDATE affiliate_links SET product_id = :product_id WHERE id = :id",
-            {"product_id": product_id, "id": affiliate_link_id}
+        # Ensure affiliate_link points to this product
+        affiliate_link.product_id = product.id
+
+        # Create version snapshot (Always)
+        version = ProductVersion(
+            id=str(uuid.uuid4()),
+            product_id=product.id,
+            snapshot=product_dict,
+            scraped_at=datetime.utcnow()
         )
-
-        # Create product version snapshot
-        db.execute(
-            """
-            INSERT INTO product_versions (id, product_id, snapshot, scraped_at)
-            VALUES (gen_random_uuid(), :product_id, :snapshot, :scraped_at)
-            """,
-            {
-                "product_id": product_id,
-                "snapshot": json.dumps(product_dict),
-                "scraped_at": datetime.utcnow()
-            }
-        )
-
+        db.add(version)
         db.commit()
-        logger.info("Product saved to database", product_id=product_id)
 
     async def run(self):
         """Main worker loop"""
-        logger.info("Starting scraper worker")
+        logger.info("Starting scraper worker (SQLAlchemy ORM)")
         await self.init_browser()
 
         try:
             while True:
                 try:
-                    # Use BRPOP to block and wait for jobs (simulating BullMQ consumer)
-                    # In production, use proper BullMQ Python client
+                    # In production, use BullMQ library for Python. 
+                    # For simplicity, we keep the simulated consumption.
                     job = self.redis.brpop("bull:scrape:wait", timeout=5)
 
                     if job:
@@ -247,11 +181,11 @@ class ScraperWorker:
                         await asyncio.sleep(1)
 
                 except Exception as e:
-                    logger.error("Error in worker loop", error=str(e))
+                    logger.error(f"Error in worker loop: {str(e)}")
                     await asyncio.sleep(5)
 
         except KeyboardInterrupt:
-            logger.info("Worker interrupted by user")
+            logger.info("Worker interrupted")
         finally:
             await self.close_browser()
 

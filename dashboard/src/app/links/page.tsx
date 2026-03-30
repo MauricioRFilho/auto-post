@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'use'
+import { useState } from 'react'
 import useSWR from 'swr'
 import { linksApi } from '@/lib/api'
 import { formatDate } from '@/lib/utils'

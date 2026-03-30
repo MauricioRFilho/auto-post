@@ -138,3 +138,12 @@ model IntegrationEvent {
   @@index([postJobId, createdAt])
   @@map("integration_events")
 }
+
+// Configurações Globais do Sistema (Editáveis via Dashboard)
+model SystemConfig {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("system_configs")
+}

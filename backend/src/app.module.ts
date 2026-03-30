@@ -12,6 +12,7 @@ import { ProductsModule } from './products/products.module';
 import { PostsModule } from './posts/posts.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { QueuesModule } from './queues/queues.module';
+import { SettingsModule } from './settings/settings.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { QueuesModule } from './queues/queues.module';
     ProductsModule,
     PostsModule,
     WebhooksModule,
+    SettingsModule,
   ],
 })
 export class AppModule {}
